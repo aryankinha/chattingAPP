@@ -51,7 +51,7 @@ export const signup = async (req, res) => {
 
     res.status(201).json({
       accessToken,
-      user: { id: user._id, name: user.name, email: user.email },
+      user: { _id: user._id, name: user.name, email: user.email, avatar: user.avatar },
     });
   } catch (error) {
     console.error(error);
@@ -92,7 +92,7 @@ export const login = async (req, res) => {
 
     res.status(200).json({
       accessToken,
-      user: { id: user._id, name: user.name, email: user.email },
+      user: { _id: user._id, name: user.name, email: user.email, avatar: user.avatar },
     });
   } catch (error) {
     console.error(error);

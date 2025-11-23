@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Mail, Lock, User, MessageCircle, Loader2 } from 'lucide-react';
 import { SignupUser } from '../api/axios';
 import login_image from '../assets/login_illustration.jpg';
-
+import socket from '../socket/index.js';
 
 const Signup = () => {
   const [formData, setFormData] = useState({
@@ -46,6 +46,8 @@ const Signup = () => {
     try {
       const { confirmPassword, ...signupData } = formData;
       await SignupUser(signupData);
+      socket.auth = { token: localStorage.getItem('accessToken') };
+      socket.connect();
       navigate('/chat');
     } catch (err) {
       setError(err.response?.data?.message || 'Signup failed. Please try again.');
@@ -166,16 +168,6 @@ const Signup = () => {
                     {showConfirmPassword ? <EyeOff /> : <Eye />}
                   </button>
                 </div>
-              </div>
-
-              {/* Terms */}
-              <div className="flex items-start text-sm text-[#3d3636]">
-                <input type="checkbox" required className="w-4 h-4 mt-1" />
-                <span className="ml-2">
-                  I agree to the{" "}
-                  <a className="text-[#FE795F]">Terms of Service</a> and{" "}
-                  <a className="text-[#FE795F]">Privacy Policy</a>
-                </span>
               </div>
 
               {/* Submit */}

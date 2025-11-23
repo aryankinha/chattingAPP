@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import ChatSidebar from "../components/ChatSidebar";
 import ChatSection from "../components/ChatSection";
 import GlobalSection from "../components/GlobalSection";
+import FriendsSection from "../components/FriendsSection";
+import ProfileSettings from "../components/ProfileSettings";
 
 const Home = () => {
   const [activeTab, setActiveTab] = useState('chat');
@@ -12,15 +14,10 @@ const Home = () => {
         return <ChatSection />;
       case 'global':
         return <GlobalSection />;
+      case 'friends':
+        return <FriendsSection />;
       case 'profile':
-        return (
-          <div className="flex h-screen bg-[#fefefe] items-center justify-center">
-            <div className="text-center">
-              <h2 className="text-3xl font-bold text-[#3d3636] mb-3">Profile Section</h2>
-              <p className="text-[#66342b]/60 text-lg">Coming soon!</p>
-            </div>
-          </div>
-        );
+        return <ProfileSettings />;
       default:
         return <ChatSection />;
     }

@@ -1,24 +1,34 @@
-import User from "../model/user.model.js";
+import User from "../model/user.model.js";  
 
 export default function registerUserStatusHandlers(io, socket, onlineUsers) {
-  const userId = socket.userId;
+    const userId = socket.userId;
 
-  // Add user to online map
-  onlineUsers.set(userId, socket.id);
-  // console.log("User online:", userId);
+    // console.log(`User ${userId} connected to socket`);
 
-  // Update database status
-  User.findByIdAndUpdate(userId, { status: "online" }).catch(() => {});
+    onlineUsers.set(userId, socket.id);
 
-  // Handle disconnect
-  socket.on("disconnect", async () => {
-    onlineUsers.delete(userId);
+    const onlineUserIds = Array.from(onlineUsers.keys());
 
-    await User.findByIdAndUpdate(userId, {
-      status: "offline",
-      lastSeen: new Date(),
+    io.emit("online-users", onlineUserIds);
+
+
+    socket.on("online-users", () => {
+        const currentOnlineUsers = Array.from(onlineUsers.keys());
+        // console.log(`Client ${userId} requested online users:`, currentOnlineUsers);
+        socket.emit("online-users", currentOnlineUsers);
     });
 
-    // console.log("User offline:", userId);
-  });
+    socket.on("disconnect", async () => {
+        // console.log(`User ${userId} disconnected`);
+        onlineUsers.delete(userId);
+
+
+        await User.findByIdAndUpdate(userId, {
+            lastSeen: new Date(),
+        }).catch(err => console.error('Error updating lastSeen:', err));
+
+        const updatedOnlineUsers = Array.from(onlineUsers.keys());
+
+        io.emit("online-users", updatedOnlineUsers);
+    });
 }

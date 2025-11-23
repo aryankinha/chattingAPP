@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Mail, Lock, MessageCircle, Loader2 } from 'lucide-react';
 import { LoginUser } from '../api/axios';
 import login_image from '../assets/login_illustration.jpg';
+import socket from '../socket/index.js';
 
 const Login = () => {
   const [formData, setFormData] = useState({ email: '', password: '' });
@@ -31,6 +32,8 @@ const Login = () => {
 
     try {
       await LoginUser(formData);
+      socket.auth = { token: localStorage.getItem('accessToken') };
+      socket.connect();
       navigate('/chat');
     } catch (err) {
       setError(err.response?.data?.message || 'Login failed. Please try again.');

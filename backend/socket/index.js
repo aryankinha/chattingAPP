@@ -3,31 +3,38 @@ import socketAuth from "./middleware/auth.js";
 import registerUserStatusHandlers from "./userStatus.js";
 import registerFriendHandlers from "./friend.js";
 import registerChatHandlers from "./chat.js";
+import Room from "../model/rooms.model.js";
 
 const onlineUsers = new Map();
 
-export default function socketHandler(server) {
+export default async function socketHandler(server) {
   const io = new Server(server, {
     cors: {
-      origin: "*",
+      origin: process.env.FRONTEND_URL,
       methods: ["GET", "POST"],
     },
   });
 
-  // middleware (token check)
   io.use(socketAuth);
 
-  io.on("connection", (socket) => {
-    console.log("New socket:", socket.id);
+  io.on("connection", async (socket) => {
+    // console.log("New socket:", socket.id);
+    const userId = socket.userId;
 
-    // user online/offline tracking
+    const rooms = await Room.find({
+      participants: userId,
+    }).select("_id");
+
+    rooms.forEach((room) => {
+      socket.join(room._id.toString());
+    });
+
     registerUserStatusHandlers(io, socket, onlineUsers);
 
-    // friend request events
     registerFriendHandlers(io, socket, onlineUsers);
 
-    // chat events (rooms, messages)
     registerChatHandlers(io, socket);
-
   });
+
+  return { io, onlineUsers };
 }

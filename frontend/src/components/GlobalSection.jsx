@@ -9,6 +9,7 @@ import {
   Loader2
 } from 'lucide-react';
 import api from '../api/axios';
+import socket from '../socket/index.js';
 
 const GlobalSection = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -16,6 +17,7 @@ const GlobalSection = () => {
   const [allUsers, setAllUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [onlineUserIds, setOnlineUserIds] = useState([]);
 
   // Fetch all users from backend
   useEffect(() => {
@@ -39,6 +41,51 @@ const GlobalSection = () => {
     fetchUsers();
   }, []);
 
+  // Listen for real-time online users updates
+  useEffect(() => {
+    // Ensure socket is connected
+    if (!socket.connected) {
+      const token = localStorage.getItem('accessToken');
+      if (token) {
+        socket.auth = { token };
+        socket.connect();
+      }
+    }
+
+    // Listen for updates
+    const handleOnlineUsers = (userIds) => {
+      console.log('Received online users:', userIds);
+      setOnlineUserIds(userIds);
+    };
+
+    const handleConnect = () => {
+      console.log('Socket connected in GlobalSection');
+      // Request initial online users list when connected
+      socket.emit('online-users');
+    };
+
+    const handleDisconnect = () => {
+      console.log('Socket disconnected');
+    };
+
+    // Set up listeners
+    socket.on('connect', handleConnect);
+    socket.on('online-users', handleOnlineUsers);
+    socket.on('disconnect', handleDisconnect);
+
+    // If already connected, request immediately
+    if (socket.connected) {
+      socket.emit('online-users');
+    }
+
+    // Cleanup
+    return () => {
+      socket.off('connect', handleConnect);
+      socket.off('online-users', handleOnlineUsers);
+      socket.off('disconnect', handleDisconnect);
+    };
+  }, []);
+
   // Get user initials for avatar
   const getInitials = (name) => {
     return name
@@ -49,14 +96,14 @@ const GlobalSection = () => {
       .slice(0, 2);
   };
 
-  // Get status color
-  const getStatusColor = (status) => {
-    switch(status) {
-      case 'online': return 'bg-green-500';
-      case 'away': return 'bg-yellow-500';
-      case 'offline': return 'bg-gray-400';
-      default: return 'bg-gray-400';
-    }
+  // Check if user is online (real-time from socket)
+  const isUserOnline = (userId) => {
+    return onlineUserIds.includes(userId);
+  };
+
+  // Get status color based on real-time online status
+  const getStatusColor = (userId) => {
+    return isUserOnline(userId) ? 'bg-green-500' : 'bg-gray-400';
   };
 
   // Filter users based on search
@@ -65,15 +112,26 @@ const GlobalSection = () => {
     user.email.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleAddFriend = (userId) => {
+  const handleAddFriend = async (userId) => {
     setAddingFriend(userId);
-    setTimeout(() => {
+    try {
+      const response = await api.post('/friends/request', { recipientId: userId });
+      
+      if (response.data.message) {
+        alert(response.data.message);
+      }
+    } catch (err) {
+      const errorMessage = err.response?.data?.message || 'Failed to send friend request';
+      alert(errorMessage);
+      console.error('Failed to send friend request:', err);
+    } finally {
       setAddingFriend(null);
-      // Here you would make an API call to add friend
-    }, 1000);
+    }
   };
 
-  const onlineCount = allUsers.filter(u => u.status === 'online').length;
+  // Calculate online count from real-time socket data
+  const onlineCount = allUsers.filter(user => isUserOnline(user._id)).length;
+  const offlineCount = allUsers.length - onlineCount;
 
   return (
     <div className="flex-1 flex flex-col h-screen bg-[#fefefe]">
@@ -88,7 +146,7 @@ const GlobalSection = () => {
               <div>
                 <h1 className="text-2xl font-bold text-[#fefefe]">All Users</h1>
                 <p className="text-sm text-[#da7d6c]">
-                  {allUsers.length} total • {onlineCount} online
+                  {allUsers.length} total • <span className="text-green-400">{onlineCount} online</span> • <span className="text-gray-400">{offlineCount} offline</span>
                 </p>
               </div>
             </div>
@@ -164,8 +222,8 @@ const GlobalSection = () => {
                               </span>
                             )}
                           </div>
-                          {/* Status Indicator */}
-                          <div className={`absolute bottom-0 right-0 w-3 h-3 ${getStatusColor(user.status)} rounded-full border-2 border-[#fefefe]`}></div>
+                          {/* Status Indicator - Real-time */}
+                          <div className={`absolute bottom-0 right-0 w-3 h-3 ${getStatusColor(user._id)} rounded-full border-2 border-[#fefefe]`}></div>
                         </div>
                       </div>
 
@@ -182,13 +240,8 @@ const GlobalSection = () => {
                       </h3>
                       <p className="text-xs text-[#66342b]/60 mb-2 truncate">{user.email}</p>
                       <p className="text-sm text-[#66342b]/80 truncate">
-                        {user.status === 'online' ? '🟢 Online' : '⚪ Offline'}
+                        {isUserOnline(user._id) ? '🟢 Online' : '⚪ Offline'}
                       </p>
-                      {user.lastSeen && user.status === 'offline' && (
-                        <p className="text-xs text-[#66342b]/40 mt-1">
-                          Last seen: {new Date(user.lastSeen).toLocaleDateString()}
-                        </p>
-                      )}
                     </div>
 
                     {/* Add Friend Button */}

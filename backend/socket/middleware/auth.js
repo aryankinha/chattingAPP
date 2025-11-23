@@ -8,10 +8,11 @@ export default function socketAuth(socket, next) {
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
     socket.userId = decoded.id; // attach to socket object
     next();
   } catch (err) {
+    console.error("Socket auth error:", err.message);
     return next(new Error("Invalid token"));
   }
 }

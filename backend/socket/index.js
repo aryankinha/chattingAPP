@@ -10,9 +10,11 @@ const onlineUsers = new Map();
 export default async function socketHandler(server) {
   const io = new Server(server, {
     cors: {
-      origin: process.env.FRONTEND_URL,
+      origin: [process.env.FRONTEND_URL, "http://localhost:5173"],
       methods: ["GET", "POST"],
+      credentials: true,
     },
+    transports: ["websocket", "polling"],
   });
 
   io.use(socketAuth);

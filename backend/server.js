@@ -12,7 +12,6 @@ import friendRoutes from "./routes/friend.routes.js";
 import messagesRoutes from "./routes/messages.routes.js";
 import roomsRoutes from "./routes/room.routes.js";
 
-
 dotenv.config();
 
 const app = express();
@@ -25,7 +24,7 @@ const MONGO_URI = process.env.MONGO_URI;
 // Middleware
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL,
+    origin: [process.env.FRONTEND_URL, "http://localhost:5173"],
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
   })
@@ -39,16 +38,16 @@ async function startServer() {
   try {
     // Connect to database first
     await connectDB(MONGO_URI);
-    
+
     // Initialize Socket.io AFTER db connection
     const { io, onlineUsers } = await socketHandler(server);
-    
+
     // Attach to app so routes can access them
     app.set("io", io);
     app.set("onlineUsers", onlineUsers);
-    
+
     console.log("Socket.io initialized successfully");
-    
+
     // Start server
     server.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
@@ -59,6 +58,10 @@ async function startServer() {
     process.exit(1);
   }
 }
+
+app.get("/", (req, res) => {
+  res.send("Server is alive");
+});
 
 // Routes - registered BEFORE server starts
 app.use("/api/auth", authRoutes);

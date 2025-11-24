@@ -37,12 +37,25 @@ export const sendOtp = async (req, res) => {
       expiresAt: Date.now() + 5 * 60 * 1000
     });
 
-    await sendOTPEmail(email, otp);
+    // Send OTP email with improved error handling
+    console.log("📤 Sending OTP email to:", email);
+    const emailResult = await sendOTPEmail(email, otp);
+    
+    if (!emailResult.success) {
+      // Clean up the OTP record if email fails
+      await SignupOtp.deleteOne({ email });
+      console.error("Failed to send OTP email:", emailResult.error);
+      return res.status(500).json({ 
+        message: "Failed to send OTP email. Please try again.",
+        error: emailResult.error 
+      });
+    }
 
+    console.log("✅ OTP sent successfully to:", email);
     res.json({ message: "OTP sent to your email" });
 
   } catch (error) {
-    console.error(error);
+    console.error("❌ Send OTP error:", error);
     res.status(500).json({ message: "Failed to send OTP" });
   }
 };

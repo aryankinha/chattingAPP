@@ -3,12 +3,21 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
+// Verify RESEND_API_KEY is loaded
+if (!process.env.RESEND_API_KEY) {
+  console.error("❌ RESEND_API_KEY is not defined in environment variables");
+} else {
+  console.log("✅ RESEND_API_KEY loaded:", process.env.RESEND_API_KEY.substring(0, 10) + "...");
+}
+
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 export const sendOTPEmail = async (email, otp) => {
   try {
-    await resend.emails.send({
-      from: "MyChatApp <onboarding@resend.dev>",
+    console.log(`📧 Attempting to send OTP to: ${email}`);
+    
+    const result = await resend.emails.send({
+      from: "onboarding@resend.dev", // Safe Resend test address
       to: email,
       subject: "Your MyChatApp OTP Code",
       html: `
@@ -70,8 +79,21 @@ export const sendOTPEmail = async (email, otp) => {
       </div>
       `,
     });
+    
+    console.log("✅ OTP email sent successfully to:", email);
+    console.log("📬 Resend response:", result);
+    return { success: true, data: result };
+    
   } catch (error) {
-    console.error("Error sending OTP:", error);
-    throw new Error("Failed to send OTP");
+    console.error("❌ Error sending OTP email:");
+    console.error("Error name:", error.name);
+    console.error("Error message:", error.message);
+    console.error("Full error:", error);
+    
+    // Don't crash the server, return error info
+    return { 
+      success: false, 
+      error: error.message || "Failed to send OTP email" 
+    };
   }
 };

@@ -19,8 +19,17 @@ const authenticate = async (req, res, next) => {
     req.user = user;
     next();
   } catch (err) {
+    // Handle JWT errors gracefully
+    if (err.name === "TokenExpiredError") {
+      return res.status(401).json({ message: "Token expired - please login again" });
+    }
+    
+    if (err.name === "JsonWebTokenError") {
+      return res.status(401).json({ message: "Invalid token format" });
+    }
+    
     console.error("Auth error:", err.message);
-    res.status(401).json({ message: "Invalid or expired token" });
+    res.status(401).json({ message: "Authentication failed" });
   }
 };
 

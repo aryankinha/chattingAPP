@@ -121,3 +121,65 @@ export const sendMessage = async (req, res) => {
     res.status(500).json({ error: "Server error" });
   }
 };
+
+
+export const unsendMessage = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { messageId } = req.params;
+
+    const message = await Message.findById(messageId);
+
+    if (!message) {
+      return res.status(404).json({ message: "Message not found" });
+    }
+
+    // Only sender can unsend
+    if (message.sender.toString() !== userId) {
+      return res.status(403).json({ message: "Not allowed" });
+    }
+
+    // Soft delete: change message text
+    message.text = "This message was unsent";
+    message.attachment = "";
+    message.isUnsent = true;
+
+    await message.save();
+
+    // Update Room last message if needed
+    const room = await Room.findById(message.roomId);
+    if (room?.lastMessage?.createdAt?.getTime() === message.createdAt.getTime()) {
+
+      const lastMsg = await Message.find({ roomId: message.roomId })
+        .sort({ createdAt: -1 })
+        .limit(1);
+
+      room.lastMessage = lastMsg[0]
+        ? {
+            text: lastMsg[0].isUnsent 
+              ? "This message was unsent"
+              : lastMsg[0].text || "📎 Attachment",
+            sender: lastMsg[0].sender,
+            createdAt: lastMsg[0].createdAt
+          }
+        : null;
+
+      await room.save();
+    }
+
+    // Send via socket
+    const io = req.app.get("io");
+    if (io) {
+      io.to(message.roomId).emit("message:unsent", {
+        messageId: message._id,
+        newText: "This message was unsent"
+      });
+    }
+
+    return res.json({ success: true, message: "Message unsent" });
+
+  } catch (err) {
+    console.error("Unsend Message Error:", err);
+    res.status(500).json({ message: "Server error while unsending message" });
+  }
+};

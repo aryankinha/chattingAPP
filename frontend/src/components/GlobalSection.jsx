@@ -8,6 +8,7 @@ import {
   Users,
   Loader2
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import api from '../api/axios';
 import socket from '../socket/index.js';
 
@@ -54,18 +55,18 @@ const GlobalSection = () => {
 
     // Listen for updates
     const handleOnlineUsers = (userIds) => {
-      console.log('Received online users:', userIds);
+      // console.log('Received online users:', userIds);
       setOnlineUserIds(userIds);
     };
 
     const handleConnect = () => {
-      console.log('Socket connected in GlobalSection');
+      // console.log('Socket connected in GlobalSection');
       // Request initial online users list when connected
       socket.emit('online-users');
     };
 
     const handleDisconnect = () => {
-      console.log('Socket disconnected');
+      // console.log('Socket disconnected');
     };
 
     // Set up listeners
@@ -118,11 +119,11 @@ const GlobalSection = () => {
       const response = await api.post('/friends/request', { recipientId: userId });
       
       if (response.data.message) {
-        alert(response.data.message);
+        toast.success(response.data.message);
       }
     } catch (err) {
       const errorMessage = err.response?.data?.message || 'Failed to send friend request';
-      alert(errorMessage);
+      toast.error(errorMessage);
       console.error('Failed to send friend request:', err);
     } finally {
       setAddingFriend(null);
@@ -137,127 +138,127 @@ const GlobalSection = () => {
     <div className="flex-1 flex flex-col h-screen bg-[#fefefe]">
         
         {/* Header */}
-        <div className="bg-gradient-to-r from-[#3d3636] to-[#66342b] px-6 py-5 shadow-lg">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#fe795f] to-[#da7d6c] flex items-center justify-center shadow-lg">
-                <Globe className="w-5 h-5 text-[#fefefe]" strokeWidth={2.5} />
+        <div className="bg-gradient-to-r from-primary to-accent-secondary px-8 py-6 shadow-xl">
+          <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center shadow-lg border border-white/30">
+                <Globe className="w-6 h-6 text-white" strokeWidth={2.5} />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-[#fefefe]">All Users</h1>
-                <p className="text-sm text-[#da7d6c]">
-                  {allUsers.length} total • <span className="text-green-400">{onlineCount} online</span> • <span className="text-gray-400">{offlineCount} offline</span>
+                <h1 className="text-3xl font-bold text-white mb-1">Discover Users</h1>
+                <p className="text-sm text-white/80 font-medium">
+                  {allUsers.length} users • <span className="text-green-300">{onlineCount} online</span>
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 bg-[#fefefe]/10 px-4 py-2 rounded-lg">
-              <Users className="w-5 h-5 text-[#da7d6c]" />
-              <span className="text-[#fefefe] font-semibold">{filteredUsers.length}</span>
+            <div className="flex items-center gap-3 bg-white/20 backdrop-blur-sm px-5 py-3 rounded-xl border border-white/30 shadow-lg">
+              <Users className="w-5 h-5 text-white" />
+              <span className="text-white font-bold text-lg">{filteredUsers.length}</span>
             </div>
           </div>
 
           {/* Search Bar */}
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#66342b]/50" />
+          <div className="relative max-w-2xl">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
             <input
               type="text"
-              placeholder="Search users by name or email..."
+              placeholder="Search by name or email..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 rounded-xl bg-[#fefefe] border border-[#da7d6c]/20 focus:border-[#fe795f] focus:outline-none focus:ring-2 focus:ring-[#fe795f]/20 transition-all text-[#3d3636] placeholder:text-[#66342b]/40"
+              className="w-full pl-12 pr-4 py-3 rounded-xl bg-white border-2 border-transparent focus:border-white focus:outline-none focus:ring-2 focus:ring-white/20 transition-all text-gray-800 placeholder:text-gray-400 shadow-md font-medium"
             />
           </div>
         </div>
 
         {/* Users Grid */}
-        <div className="flex-1 overflow-y-auto bg-gradient-to-br from-[#fefefe] to-[#da7d6c]/5 p-6">
+        <div className="flex-1 overflow-y-auto bg-gradient-to-br from-gray-50 to-gray-100 p-8">
           <div className="max-w-7xl mx-auto">
             
             {loading ? (
-              <div className="text-center py-20">
-                <Loader2 className="w-16 h-16 text-[#fe795f] mx-auto mb-4 animate-spin" />
-                <p className="text-[#66342b]/60 text-lg">Loading users...</p>
+              <div className="text-center py-32">
+                <div className="bg-white rounded-3xl p-12 inline-block shadow-2xl">
+                  <Loader2 className="w-20 h-20 text-primary mx-auto mb-6 animate-spin" />
+                  <p className="text-gray-600 text-xl font-semibold">Loading users...</p>
+                </div>
               </div>
             ) : error ? (
-              <div className="text-center py-20">
-                <User className="w-16 h-16 text-[#66342b]/30 mx-auto mb-4" />
-                <p className="text-[#66342b]/60 text-lg">Failed to load users</p>
-                <p className="text-[#66342b]/40 text-sm mt-2">{error}</p>
-                <button
-                  onClick={() => window.location.reload()}
-                  className="mt-4 px-6 py-2 bg-[#fe795f] text-[#fefefe] rounded-lg hover:bg-[#da7d6c] transition-colors"
-                >
-                  Retry
-                </button>
+              <div className="text-center py-32">
+                <div className="bg-white rounded-3xl p-12 inline-block shadow-2xl">
+                  <User className="w-20 h-20 text-gray-300 mx-auto mb-6" />
+                  <p className="text-gray-700 text-xl font-bold mb-2">Failed to load users</p>
+                  <p className="text-gray-500 text-sm mb-6">{error}</p>
+                  <button
+                    onClick={() => window.location.reload()}
+                    className="px-8 py-3 bg-gradient-to-r from-primary to-accent-secondary text-white rounded-xl font-semibold hover:shadow-xl transition-all hover:scale-105"
+                  >
+                    Retry
+                  </button>
+                </div>
               </div>
             ) : filteredUsers.length === 0 ? (
-              <div className="text-center py-20">
-                <User className="w-16 h-16 text-[#66342b]/30 mx-auto mb-4" />
-                <p className="text-[#66342b]/60 text-lg">No users found</p>
-                <p className="text-[#66342b]/40 text-sm mt-2">Try a different search term</p>
+              <div className="text-center py-32">
+                <div className="bg-white rounded-3xl p-12 inline-block shadow-2xl">
+                  <User className="w-20 h-20 text-gray-300 mx-auto mb-6" />
+                  <p className="text-gray-700 text-xl font-bold mb-2">No users found</p>
+                  <p className="text-gray-500 text-sm">Try a different search term</p>
+                </div>
               </div>
             ) : (
-              <div className="grid grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {filteredUsers.map(user => (
                   <div 
                     key={user._id}
-                    className="bg-[#fefefe] rounded-xl p-5 border border-[#da7d6c]/20 hover:border-[#fe795f] hover:shadow-lg transition-all duration-200 group"
+                    className="bg-white rounded-2xl p-6 border-2 border-gray-100 hover:border-primary hover:shadow-lg transition-all duration-200 group"
                   >
-                    {/* User Header */}
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex items-center gap-3">
-                        {/* Avatar */}
-                        <div className="relative">
-                          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#fe795f] to-[#da7d6c] flex items-center justify-center shadow-md">
-                            {user.avatar ? (
-                              <img 
-                                src={user.avatar} 
-                                alt={user.name}
-                                className="w-full h-full rounded-full object-cover"
-                              />
-                            ) : (
-                              <span className="text-[#fefefe] font-bold text-sm">
-                                {getInitials(user.name)}
-                              </span>
-                            )}
-                          </div>
-                          {/* Status Indicator - Real-time */}
-                          <div className={`absolute bottom-0 right-0 w-3 h-3 ${getStatusColor(user._id)} rounded-full border-2 border-[#fefefe]`}></div>
+                    {/* Avatar - Centered */}
+                    <div className="flex flex-col items-center mb-5">
+                      <div className="relative mb-3">
+                        <div className="w-20 h-20 rounded-full bg-gradient-to-br from-primary to-accent-secondary flex items-center justify-center shadow-lg ring-4 ring-gray-100 group-hover:ring-primary/20 transition-all">
+                          {user.avatar ? (
+                            <img 
+                              src={user.avatar} 
+                              alt={user.name}
+                              className="w-full h-full rounded-full object-cover"
+                            />
+                          ) : (
+                            <span className="text-white font-bold text-2xl">
+                              {getInitials(user.name)}
+                            </span>
+                          )}
                         </div>
+                        {/* Status Indicator - Real-time */}
+                        <div className={`absolute bottom-1 right-1 w-4 h-4 ${getStatusColor(user._id)} rounded-full border-3 border-white shadow-md`}></div>
                       </div>
 
-                      {/* More Options */}
-                      <button className="text-[#66342b]/40 hover:text-[#fe795f] transition-colors opacity-0 group-hover:opacity-100">
-                        <MoreVertical className="w-5 h-5" />
-                      </button>
-                    </div>
-
-                    {/* User Info */}
-                    <div className="mb-4">
-                      <h3 className="font-bold text-[#3d3636] mb-1 truncate">
+                      {/* User Info - Centered */}
+                      <h3 className="font-bold text-gray-800 text-lg mb-1 text-center truncate w-full px-2">
                         {user.name}
                       </h3>
-                      <p className="text-xs text-[#66342b]/60 mb-2 truncate">{user.email}</p>
-                      <p className="text-sm text-[#66342b]/80 truncate">
-                        {isUserOnline(user._id) ? '🟢 Online' : '⚪ Offline'}
-                      </p>
+                      <p className="text-sm text-gray-500 text-center truncate w-full px-2">{user.email}</p>
                     </div>
 
                     {/* Add Friend Button */}
                     <button
                       onClick={() => handleAddFriend(user._id)}
                       disabled={addingFriend === user._id}
-                      className={`w-full py-2.5 rounded-lg font-medium transition-all duration-200 flex items-center justify-center gap-2 ${
+                      className={`w-full py-3 rounded-xl font-semibold transition-all duration-200 flex items-center justify-center gap-2 shadow-sm ${
                         addingFriend === user._id
-                          ? 'bg-[#66342b]/20 text-[#66342b]/50 cursor-not-allowed'
-                          : 'bg-gradient-to-r from-[#fe795f] to-[#da7d6c] text-[#fefefe] hover:shadow-md hover:scale-105'
+                          ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                          : 'bg-gradient-to-r from-primary to-accent-secondary text-white hover:shadow-md hover:scale-[1.02] active:scale-95'
                       }`}
                     >
-                      <UserPlus className="w-4 h-4" />
-                      <span>
-                        {addingFriend === user._id ? 'Adding...' : 'Add Friend'}
-                      </span>
+                      {addingFriend === user._id ? (
+                        <>
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                          <span>Adding...</span>
+                        </>
+                      ) : (
+                        <>
+                          <UserPlus className="w-5 h-5" />
+                          <span>Add Friend</span>
+                        </>
+                      )}
                     </button>
                   </div>
                 ))}

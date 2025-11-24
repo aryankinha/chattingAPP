@@ -11,6 +11,8 @@ const messageSchema = new mongoose.Schema(
     attachment: { type: String, default: "" },
 
     readBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+
+    isUnsent: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

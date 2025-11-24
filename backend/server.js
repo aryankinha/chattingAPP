@@ -11,6 +11,8 @@ import socketHandler from "./socket/index.js";
 import friendRoutes from "./routes/friend.routes.js";
 import messagesRoutes from "./routes/messages.routes.js";
 import roomsRoutes from "./routes/room.routes.js";
+import profileRoutes from "./routes/profile.routes.js";
+
 
 dotenv.config();
 
@@ -70,6 +72,6 @@ app.use("/api/users", usersRoutes);
 app.use("/api/friends", friendRoutes);
 app.use("/api/messages", messagesRoutes);
 app.use("/api/rooms", roomsRoutes);
-
+app.use("/api/profile", profileRoutes);
 // Start the server
 startServer();

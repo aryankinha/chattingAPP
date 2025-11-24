@@ -6,7 +6,8 @@ import {
   removeFriend,
   getPendingRequests,
   getFriends,
-  getRejectedRequests
+  getRejectedRequests,
+  checkFriendshipStatus
 } from "../controllers/friend.controller.js";
 
 import authenticate from "../middleware/authenticate.js";
@@ -23,5 +24,6 @@ router.post("/remove", removeFriend);
 router.get("/pending", getPendingRequests);
 router.get("/list", getFriends);
 router.get("/rejected", getRejectedRequests);
+router.get("/status/:friendId", checkFriendshipStatus);
 
 export default router;

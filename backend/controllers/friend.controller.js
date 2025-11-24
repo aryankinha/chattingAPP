@@ -18,10 +18,12 @@ export const sendFriendRequest = async (req, res) => {
       return res.status(400).json({ message: "You cannot add yourself" });
     }
 
-    // Check if already friends or pending
+    // Check if already friends or pending (both directions)
     const existing = await Friendship.findOne({
-      requester: requesterId,
-      recipient: recipientId,
+      $or: [
+        { requester: requesterId, recipient: recipientId },
+        { requester: recipientId, recipient: requesterId }
+      ]
     });
 
     // If already friends
@@ -29,7 +31,7 @@ export const sendFriendRequest = async (req, res) => {
       return res.status(400).json({ message: "You are already friends" });
     }
 
-    // If request already pending
+    // If request already pending (either direction)
     if (existing && existing.status === "pending") {
       return res
         .status(400)
@@ -234,6 +236,34 @@ export const getRejectedRequests = async (req, res) => {
     return res.json({ requests });
   } catch (err) {
     console.error("Get Rejected Requests Error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+};
+
+export const checkFriendshipStatus = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { friendId } = req.params;
+
+    if (!friendId) {
+      return res.status(400).json({ message: "Friend ID is required" });
+    }
+
+    // Check if friendship exists in either direction
+    const friendship = await Friendship.findOne({
+      status: "accepted",
+      $or: [
+        { requester: userId, recipient: friendId },
+        { requester: friendId, recipient: userId }
+      ]
+    });
+
+    return res.json({ 
+      areFriends: !!friendship,
+      friendship: friendship || null
+    });
+  } catch (err) {
+    console.error("Check Friendship Status Error:", err);
     res.status(500).json({ error: "Server error" });
   }
 };

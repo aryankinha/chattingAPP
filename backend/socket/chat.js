@@ -7,7 +7,7 @@ export default function registerChatHandlers(io, socket) {
   // JOIN ROOM
   socket.on("join-room", async ({ roomId }) => {
     socket.join(roomId);
-    console.log(`User ${userId} joined room ${roomId}`);
+    // console.log(`User ${userId} joined room ${roomId}`);
   });
 
   // SEND MESSAGE
@@ -30,5 +30,24 @@ export default function registerChatHandlers(io, socket) {
 
     // Broadcast to everyone in that room
     io.to(roomId).emit("receive-message", msg);
+  });
+
+  // UNSEND MESSAGE
+  socket.on("message:unsend", async ({ messageId, roomId }) => {
+    try {
+      const message = await Message.findById(messageId);
+      
+      if (!message || message.sender.toString() !== userId) {
+        return;
+      }
+
+      // Broadcast to everyone in the room (including sender)
+      io.to(roomId).emit("message:unsent", {
+        messageId,
+        newText: "This message was unsent"
+      });
+    } catch (err) {
+      console.error("Socket unsend error:", err);
+    }
   });
 }

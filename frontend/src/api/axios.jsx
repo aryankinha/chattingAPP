@@ -57,14 +57,18 @@ api.interceptors.response.use(
     isRefreshing = true;
 
     try {
+      // console.log("🔄 Attempting to refresh access token...");
+      // console.log("Refresh URL:", `${import.meta.env.VITE_API_URL}/api/auth/refresh-token`);
 
       const { data } = await axios.post(
-        `${import.meta.env.VITE_API_URL}/auth/refresh-token`,
+        `${import.meta.env.VITE_API_URL}/api/auth/refresh-token`,
         {},
         { withCredentials: true }
       );
 
       const newAccessToken = data.accessToken;
+
+      // console.log("✅ Token refreshed successfully");
 
       // Save new token
       localStorage.setItem("accessToken", newAccessToken);
@@ -86,10 +90,18 @@ api.interceptors.response.use(
       return api(originalRequest);
     } catch (refreshError) {
       // Refresh failed → logout
+      console.error("❌ Token refresh failed:", refreshError.response?.data || refreshError.message);
+      // console.log("🔄 Logging out user...");
+      
       localStorage.removeItem("accessToken");
       localStorage.removeItem("user");
 
       processQueue(refreshError, null);
+
+      // Disconnect socket
+      if (socket.connected) {
+        socket.disconnect();
+      }
 
       if (typeof window !== "undefined") {
         window.location.href = "/login";
@@ -104,16 +116,6 @@ api.interceptors.response.use(
 
 export const LoginUser = async (userData) => {
   const res = await api.post("/auth/login", userData);
-  const { accessToken, user } = res.data;
-
-  localStorage.setItem("accessToken", accessToken);
-  localStorage.setItem("user", JSON.stringify(user));
-
-  return res;
-};
-
-export const SignupUser = async (userData) => {
-  const res = await api.post("/auth/signup", userData);
   const { accessToken, user } = res.data;
 
   localStorage.setItem("accessToken", accessToken);

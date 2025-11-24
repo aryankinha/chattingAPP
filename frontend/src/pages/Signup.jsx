@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Mail, Lock, User, MessageCircle, Loader2 } from 'lucide-react';
-import { SignupUser } from '../api/axios';
+import axios from '../api/axios'; // <-- USE AXIOS HERE INSTEAD OF SignupUser
 import login_image from '../assets/login_illustration.jpg';
 import socket from '../socket/index.js';
 
@@ -19,7 +19,6 @@ const Signup = () => {
   const [error, setError] = useState('');
   const navigate = useNavigate();
 
-  // Redirect if already authenticated
   useEffect(() => {
     const accessToken = localStorage.getItem('accessToken');
     if (accessToken) {
@@ -44,11 +43,16 @@ const Signup = () => {
     }
 
     try {
-      const { confirmPassword, ...signupData } = formData;
-      await SignupUser(signupData);
-      socket.auth = { token: localStorage.getItem('accessToken') };
-      socket.connect();
-      navigate('/chat');
+      const { confirmPassword, ...payload } = formData;
+
+      // Step 1: Call /send-otp
+      await axios.post('/auth/send-otp', payload);
+
+      // Step 2: Navigate to OTP page with email
+      navigate('/verify-otp', {
+        state: { email: formData.email }
+      });
+
     } catch (err) {
       setError(err.response?.data?.message || 'Signup failed. Please try again.');
     } finally {
@@ -58,8 +62,6 @@ const Signup = () => {
 
   return (
     <div className="min-h-screen w-full grid grid-cols-1 md:grid-cols-2 bg-[#fefefe]">
-
-
       <div className="flex items-center justify-center p-6 bg-[#fefefe]">
         <div className="w-full max-w-md">
 
@@ -95,7 +97,7 @@ const Signup = () => {
                     required
                     className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg 
                     focus:ring-2 focus:ring-[#FE795F] focus:border-transparent"
-                    placeholder="Anu"
+                    placeholder="Your Name"
                   />
                 </div>
               </div>
@@ -196,7 +198,6 @@ const Signup = () => {
 
         </div>
       </div>
-
 
       <div className="hidden md:flex items-center justify-center p-10 bg-[#fefefe]">
         <img

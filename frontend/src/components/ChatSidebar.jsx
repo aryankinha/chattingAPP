@@ -1,11 +1,26 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { MessageSquare, Users, Globe, LogOut } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { LogoutUser } from "../api/axios";
 
 const ChatSidebar = ({ activeTab, onTabChange }) => {
   const navigate = useNavigate();
-  const user = JSON.parse(localStorage.getItem("user")) || {};
+  const [user, setUser] = useState(JSON.parse(localStorage.getItem("user")) || {});
+
+  // Listen for localStorage changes to update user avatar in real-time
+  useEffect(() => {
+    const handleStorageChange = () => {
+      const updatedUser = JSON.parse(localStorage.getItem("user")) || {};
+      setUser(updatedUser);
+    };
+
+    // Listen to custom event for localStorage updates
+    window.addEventListener('userUpdated', handleStorageChange);
+    
+    return () => {
+      window.removeEventListener('userUpdated', handleStorageChange);
+    };
+  }, []);
 
   const getInitials = (name = "") =>
     name
@@ -109,17 +124,19 @@ const ChatSidebar = ({ activeTab, onTabChange }) => {
              hover:bg-white/10 hover:scale-[1.02]"
         >
           <div className="relative">
-            <div className="h-12 w-12 rounded-full bg-accent-secondary flex items-center justify-center text-white font-bold overflow-hidden border-2 border-accent-tertiary shadow-md">
-              {user.avatar ? (
+            {user.avatar ? (
+              <div className="h-12 w-12 rounded-full overflow-hidden border-2 border-accent-tertiary shadow-md">
                 <img
                   src={user.avatar}
                   alt="Profile"
-                  className="w-full h-full object-cover rounded-full"
+                  className="w-full h-full object-cover"
                 />
-              ) : (
+              </div>
+            ) : (
+              <div className="h-12 w-12 rounded-full bg-accent-secondary flex items-center justify-center text-white font-bold border-2 border-accent-tertiary shadow-md">
                 <span>{getInitials(user.name || "User")}</span>
-              )}
-            </div>
+              </div>
+            )}
 
             {/* Online Indicator */}
             <div className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 border-2 border-background-dark"></div>

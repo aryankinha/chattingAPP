@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import api from "../api/axios";
 import socket from "../socket";
 
-const FriendsSection = () => {
+const FriendsSection = ({ onOpenChat }) => {
   const [activeTab, setActiveTab] = useState("pending");
 
   const [pendingRequests, setPendingRequests] = useState([]);
@@ -139,6 +139,22 @@ const FriendsSection = () => {
     }
   };
 
+  // Handle message button click - open chat with friend
+  const handleMessageClick = async (friendId) => {
+    try {
+      // Get or create room with this friend
+      const res = await api.get(`/rooms/with/${friendId}`);
+      const room = res.data.room;
+      
+      // Call the parent callback to switch to chat tab and load this room
+      if (onOpenChat) {
+        onOpenChat(room);
+      }
+    } catch (err) {
+      console.error("Error getting room:", err);
+    }
+  };
+
   return (
     <main className="flex-1 p-8 grid grid-cols-1 lg:grid-cols-3 gap-8 bg-background-light">
 
@@ -261,7 +277,7 @@ const FriendsSection = () => {
                     </div>
 
                     <div
-                      className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white ${
+                      className={`absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-white shadow-sm ${
                         isUserOnline(friend._id) ? "bg-green-500" : "bg-gray-400"
                       }`}
                     />
@@ -273,14 +289,24 @@ const FriendsSection = () => {
                     <p className="text-text-secondary-dark text-sm">
                       {friend.email}
                     </p>
-                    <p className="text-xs text-gray-500">
-                      {isUserOnline(friend._id) ? '🟢 Online' : '⚪ Offline'}
-                    </p>
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <div className={`w-2 h-2 rounded-full ${
+                        isUserOnline(friend._id) ? 'bg-green-500' : 'bg-gray-400'
+                      }`} />
+                      <p className={`text-xs font-medium ${
+                        isUserOnline(friend._id) 
+                          ? 'text-green-600' 
+                          : 'text-gray-500'
+                      }`}>
+                        {isUserOnline(friend._id) ? 'Online' : 'Offline'}
+                      </p>
+                    </div>
                   </div>
                 </div>
 
                 <div className="flex gap-3">
                   <button
+                    onClick={() => handleMessageClick(friend._id)}
                     className="rounded-full bg-primary/10 px-6 py-2.5 text-sm font-bold text-primary hover:bg-primary/20 flex items-center gap-2"
                   >
                     <MessageCircle size={16} />
@@ -379,7 +405,7 @@ const FriendsSection = () => {
                   </div>
 
                   <div
-                    className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-gray-50 ${
+                    className={`absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-gray-50 shadow-sm ${
                       isUserOnline(friend._id) ? "bg-green-500" : "bg-gray-400"
                     }`}
                   />
@@ -389,7 +415,10 @@ const FriendsSection = () => {
               </div>
 
               <div className="flex gap-2">
-                <button className="hover:bg-primary/20 rounded-full h-9 w-9 flex items-center justify-center text-text-secondary-dark hover:text-primary">
+                <button 
+                  onClick={() => handleMessageClick(friend._id)}
+                  className="hover:bg-primary/20 rounded-full h-9 w-9 flex items-center justify-center text-text-secondary-dark hover:text-primary"
+                >
                   <MessageCircle size={18} />
                 </button>
 

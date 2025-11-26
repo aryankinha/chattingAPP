@@ -4,7 +4,6 @@ import {
   Search, 
   UserPlus,
   User,
-  MoreVertical,
   Users,
   Loader2
 } from 'lucide-react';
@@ -19,16 +18,29 @@ const GlobalSection = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [onlineUserIds, setOnlineUserIds] = useState([]);
+  
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [usersPerPage, setUsersPerPage] = useState(10);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalUsers, setTotalUsers] = useState(0);
 
-  // Fetch all users from backend
+  // Fetch all users from backend with pagination
   useEffect(() => {
     const fetchUsers = async () => {
       try {
         setLoading(true);
-        const response = await api.get('/users/all');
+        const response = await api.get('/users/all', {
+          params: {
+            page: currentPage,
+            limit: usersPerPage
+          }
+        });
         
         if (response.data.success) {
           setAllUsers(response.data.users);
+          setTotalPages(response.data.totalPages);
+          setTotalUsers(response.data.total);
         }
         setError(null);
       } catch (err) {
@@ -40,9 +52,9 @@ const GlobalSection = () => {
     };
 
     fetchUsers();
-  }, []);
+  }, [currentPage, usersPerPage]);
 
-  // Listen for real-time online users updates
+
   useEffect(() => {
     // Ensure socket is connected
     if (!socket.connected) {
@@ -55,13 +67,10 @@ const GlobalSection = () => {
 
     // Listen for updates
     const handleOnlineUsers = (userIds) => {
-      // console.log('Received online users:', userIds);
       setOnlineUserIds(userIds);
     };
 
     const handleConnect = () => {
-      // console.log('Socket connected in GlobalSection');
-      // Request initial online users list when connected
       socket.emit('online-users');
     };
 
@@ -107,11 +116,66 @@ const GlobalSection = () => {
     return isUserOnline(userId) ? 'bg-green-500' : 'bg-gray-400';
   };
 
-  // Filter users based on search
+  // Filter users based on search (client-side for current page)
   const filteredUsers = allUsers.filter(user => 
     user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     user.email.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  // Handle page change
+  const handlePageChange = (newPage) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      setCurrentPage(newPage);
+      setSearchQuery('');
+    }
+  };
+
+  // Handle users per page change
+  const handleLimitChange = (newLimit) => {
+    setUsersPerPage(newLimit);
+    setCurrentPage(1); 
+    setSearchQuery('');
+  };
+
+  // Generate page numbers to display
+  const getPageNumbers = () => {
+    const pages = [];
+    const maxPagesToShow = 5;
+    
+    if (totalPages <= maxPagesToShow) {
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      // Always show first page
+      pages.push(1);
+
+      let start = Math.max(2, currentPage - 1);
+      let end = Math.min(totalPages - 1, currentPage + 1);
+      
+      // Add ellipsis after first page if needed
+      if (start > 2) {
+        pages.push('...');
+      }
+      
+      // Add pages around current page
+      for (let i = start; i <= end; i++) {
+        pages.push(i);
+      }
+      
+      // Add ellipsis before last page if needed
+      if (end < totalPages - 1) {
+        pages.push('...');
+      }
+      
+      // Always show last page
+      if (totalPages > 1) {
+        pages.push(totalPages);
+      }
+    }
+    
+    return pages;
+  };
 
   const handleAddFriend = async (userId) => {
     setAddingFriend(userId);
@@ -132,10 +196,9 @@ const GlobalSection = () => {
 
   // Calculate online count from real-time socket data
   const onlineCount = allUsers.filter(user => isUserOnline(user._id)).length;
-  const offlineCount = allUsers.length - onlineCount;
 
   return (
-    <div className="flex-1 flex flex-col h-screen bg-[#fefefe]">
+    <div className="flex-1 flex flex-col h-screen bg-[#fefefe] relative">
         
         {/* Header */}
         <div className="bg-gradient-to-r from-primary to-accent-secondary px-8 py-6 shadow-xl">
@@ -147,14 +210,14 @@ const GlobalSection = () => {
               <div>
                 <h1 className="text-3xl font-bold text-white mb-1">Discover Users</h1>
                 <p className="text-sm text-white/80 font-medium">
-                  {allUsers.length} users • <span className="text-green-300">{onlineCount} online</span>
+                  {totalUsers} total users • <span className="text-green-300">{onlineCount} online</span> • Page {currentPage} of {totalPages}
                 </p>
               </div>
             </div>
 
             <div className="flex items-center gap-3 bg-white/20 backdrop-blur-sm px-5 py-3 rounded-xl border border-white/30 shadow-lg">
               <Users className="w-5 h-5 text-white" />
-              <span className="text-white font-bold text-lg">{filteredUsers.length}</span>
+              <span className="text-white font-bold text-lg">{allUsers.length}</span>
             </div>
           </div>
 
@@ -172,7 +235,7 @@ const GlobalSection = () => {
         </div>
 
         {/* Users Grid */}
-        <div className="flex-1 overflow-y-auto bg-gradient-to-br from-gray-50 to-gray-100 p-8">
+        <div className="flex-1 overflow-y-auto bg-gradient-to-br from-gray-50 to-gray-100 p-8 pb-28">
           <div className="max-w-7xl mx-auto">
             
             {loading ? (
@@ -266,6 +329,88 @@ const GlobalSection = () => {
             )}
           </div>
         </div>
+
+        {/* Pagination Controls - Sticky at Bottom of Global Section */}
+        {!loading && !error && allUsers.length > 0 && (
+          <div className="absolute bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md shadow-[0_-4px_12px_rgba(0,0,0,0.08)] border-t border-gray-200">
+            <div className="max-w-7xl mx-auto px-8 py-4">
+              <div className="flex items-center justify-between">
+                {/* Users Per Page Selector */}
+                <div className="flex items-center gap-2">
+                  <span className="text-gray-600 text-sm">Show:</span>
+                  <select
+                    value={usersPerPage}
+                    onChange={(e) => handleLimitChange(parseInt(e.target.value))}
+                    className="px-3 py-1.5 border border-gray-300 rounded-lg focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/20 transition-all cursor-pointer text-sm text-gray-700 bg-white hover:border-primary/50"
+                  >
+                    <option value={10}>10 users</option>
+                    <option value={20}>20 users</option>
+                    <option value={30}>30 users</option>
+                    <option value={50}>50 users</option>
+                    <option value={100}>100 users</option>
+                  </select>
+                </div>
+
+                {/* Page Navigation */}
+                <div className="flex items-center gap-2">
+                  {/* Previous Button */}
+                  <button
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                      currentPage === 1
+                        ? 'bg-gray-50 text-gray-300 cursor-not-allowed'
+                        : 'bg-primary/10 text-primary hover:bg-primary/20 hover:scale-105 active:scale-95'
+                    }`}
+                  >
+                    Previous
+                  </button>
+
+                  {/* Page Numbers */}
+                  <div className="flex items-center gap-1.5 mx-3">
+                    {getPageNumbers().map((page, index) => (
+                      page === '...' ? (
+                        <span key={`ellipsis-${index}`} className="px-2 py-1 text-gray-400 text-sm">
+                          ...
+                        </span>
+                      ) : (
+                        <button
+                          key={page}
+                          onClick={() => handlePageChange(page)}
+                          className={`min-w-9 h-9 rounded-lg text-sm font-medium transition-all ${
+                            currentPage === page
+                              ? 'bg-primary text-white shadow-sm'
+                              : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      )
+                    ))}
+                  </div>
+
+                  {/* Next Button */}
+                  <button
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                      currentPage === totalPages
+                        ? 'bg-gray-50 text-gray-300 cursor-not-allowed'
+                        : 'bg-primary/10 text-primary hover:bg-primary/20 hover:scale-105 active:scale-95'
+                    }`}
+                  >
+                    Next
+                  </button>
+                </div>
+
+                {/* Status Text */}
+                <div className="text-xs text-gray-500">
+                  Showing {((currentPage - 1) * usersPerPage) + 1} to {Math.min(currentPage * usersPerPage, totalUsers)} of {totalUsers}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
   );
 };

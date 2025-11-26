@@ -19,13 +19,27 @@ export default function registerChatHandlers(io, socket) {
       sender: userId,
     });
 
-    // Update last message in room
+    // Get room to find other participants
+    const room = await Room.findById(roomId);
+    
+    // Increment unread count for all participants except sender
+    const unreadCountUpdate = {};
+    room.participants.forEach((participantId) => {
+      const participantIdStr = participantId.toString();
+      if (participantIdStr !== userId) {
+        const currentCount = room.unreadCount?.get(participantIdStr) || 0;
+        unreadCountUpdate[`unreadCount.${participantIdStr}`] = currentCount + 1;
+      }
+    });
+
+    // Update last message and unread counts in room
     await Room.findByIdAndUpdate(roomId, {
       lastMessage: {
         text,
         sender: userId,
         createdAt: msg.createdAt,
       },
+      ...unreadCountUpdate,
     });
 
     // Broadcast to everyone in that room

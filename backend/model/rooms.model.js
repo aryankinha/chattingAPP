@@ -11,6 +11,13 @@ const roomSchema = new mongoose.Schema(
       sender: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
       createdAt: Date,
     },
+
+    // Map to store unread count per user: { userId: count }
+    unreadCount: {
+      type: Map,
+      of: Number,
+      default: {}
+    },
   },
   { timestamps: true }
 );

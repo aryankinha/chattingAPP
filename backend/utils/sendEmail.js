@@ -5,7 +5,6 @@ export const sendOTPEmail = async (email, otp) => {
   const apiKey = process.env.BREVO_API_KEY;
 
   if (!apiKey) {
-    console.error("❌ BREVO_API_KEY missing in environment variables!");
     return { success: false, error: "Missing BREVO_API_KEY" };
   }
 
@@ -89,18 +88,18 @@ export const sendOTPEmail = async (email, otp) => {
     const data = await response.json().catch(() => null);
 
     if (!response.ok) {
-      console.error("❌ Brevo send error:", {
+      console.error("Brevo send error:", {
         status: response.status,
         body: data,
       });
       return { success: false, error: data?.message || "Brevo send failed" };
     }
 
-    console.log("✅ OTP email sent successfully:", data);
+    console.log("OTP email sent successfully:", data);
     return { success: true, data };
 
   } catch (err) {
-    console.error("❌ Unexpected error sending OTP:", err);
+    console.error("Unexpected error sending OTP:", err);
     return { success: false, error: err.message };
   }
 };

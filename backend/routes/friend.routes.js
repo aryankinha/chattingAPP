@@ -4,7 +4,9 @@ import {
   acceptFriendRequest,
   rejectFriendRequest,
   removeFriend,
+  cancelFriendRequest,
   getPendingRequests,
+  getSentRequests,
   getFriends,
   getRejectedRequests,
   checkFriendshipStatus
@@ -20,8 +22,10 @@ router.post("/request", sendFriendRequest);
 router.post("/accept", acceptFriendRequest);
 router.post("/reject", rejectFriendRequest);
 router.post("/remove", removeFriend);
+router.post("/cancel", cancelFriendRequest);
 
 router.get("/pending", getPendingRequests);
+router.get("/sent", getSentRequests);
 router.get("/list", getFriends);
 router.get("/rejected", getRejectedRequests);
 router.get("/status/:friendId", checkFriendshipStatus);

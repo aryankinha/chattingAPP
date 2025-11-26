@@ -135,26 +135,76 @@ export const getPendingRequests = async (req, res) => {
   }
 };
 
-export const getFriends = async (req, res) => {
+export const getSentRequests = async (req, res) => {
   try {
     const userId = req.user.id;
 
+    const requests = await Friendship.find({
+      requester: userId,
+      status: "pending",
+    })
+      .populate("recipient", "name email avatar status")
+      .sort({ createdAt: -1 });
+
+    return res.json({ requests });
+  } catch (err) {
+    console.error("Get Sent Requests Error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+};
+
+export const getFriends = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { search = '' } = req.query;
+
+    // Get friendships sorted by when they were created (most recent first)
     const friendships = await Friendship.find({
       status: "accepted",
       $or: [{ requester: userId }, { recipient: userId }],
-    });
+    }).sort({ createdAt: -1 }); // Sort by creation time (newest friends first)
 
-    // Determine all friend IDs
+    // Determine all friend IDs with their creation order
     const friendIds = friendships.map((fr) =>
       fr.requester.toString() === userId ? fr.recipient : fr.requester
     );
 
-    // Fetch friend details
-    const friends = await User.find({ _id: { $in: friendIds } }).select(
-      "name email avatar status lastSeen"
-    );
+    // Build search query
+    let query = { _id: { $in: friendIds } };
+    
+    // If search query is provided, search by name or email
+    if (search && search.trim() !== '') {
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } }
+      ];
+    }
 
-    return res.json({ friends });
+    // Fetch all matching friend details
+    const users = await User.find(query)
+      .select("name email avatar status lastSeen");
+
+    // If not searching, maintain the order from friendships and limit to 5
+    let friends = users;
+    if (!search || search.trim() === '') {
+      // Create a map of user ID to user object for quick lookup
+      const userMap = new Map(users.map(user => [user._id.toString(), user]));
+      
+      // Sort users based on friendship creation order and limit to 5
+      friends = friendIds
+        .slice(0, 5) // Take only first 5 (latest friends)
+        .map(id => userMap.get(id.toString()))
+        .filter(user => user !== undefined); // Remove any undefined entries
+    }
+
+    // Get total count of all friends
+    const totalFriends = friendIds.length;
+
+    return res.json({ 
+      friends,
+      total: totalFriends,
+      showing: friends.length
+    });
   } catch (err) {
     console.error("Get Friend List Error:", err);
     res.status(500).json({ error: "Server error" });
@@ -218,6 +268,32 @@ export const removeFriend = async (req, res) => {
     return res.json({ message: "Friend removed successfully" });
   } catch (err) {
     console.error("Remove Friend Error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+};
+
+export const cancelFriendRequest = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { recipientId } = req.body;
+
+    if (!recipientId) {
+      return res.status(400).json({ message: "Recipient ID is required" });
+    }
+
+    const friendship = await Friendship.findOneAndDelete({
+      requester: userId,
+      recipient: recipientId,
+      status: "pending",
+    });
+
+    if (!friendship) {
+      return res.status(404).json({ message: "Friend request not found" });
+    }
+
+    return res.json({ message: "Friend request cancelled successfully" });
+  } catch (err) {
+    console.error("Cancel Friend Request Error:", err);
     res.status(500).json({ error: "Server error" });
   }
 };

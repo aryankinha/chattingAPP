@@ -1,5 +1,5 @@
-import { MessageCircle, Search, UserMinus } from "lucide-react";
 import React, { useState, useEffect } from "react";
+import { MessageCircle, Search, UserMinus, X } from "lucide-react";
 import api from "../api/axios";
 import socket from "../socket";
 
@@ -7,10 +7,13 @@ const FriendsSection = ({ onOpenChat }) => {
   const [activeTab, setActiveTab] = useState("pending");
 
   const [pendingRequests, setPendingRequests] = useState([]);
+  const [sentRequests, setSentRequests] = useState([]);
   const [acceptedFriends, setAcceptedFriends] = useState([]);
   const [rejectedRequests, setRejectedRequests] = useState([]);
   const [onlineUserIds, setOnlineUserIds] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [totalFriends, setTotalFriends] = useState(0);
+  const [isSearching, setIsSearching] = useState(false);
 
   const fetchPending = async () => {
     try {
@@ -21,12 +24,24 @@ const FriendsSection = ({ onOpenChat }) => {
     }
   };
 
-  // FETCH FRIEND LIST
-  const fetchFriends = async () => {
+  const fetchSentRequests = async () => {
     try {
-      const res = await api.get("/friends/list");
+      const res = await api.get("/friends/sent");
+      setSentRequests(res.data.requests || []);
+    } catch (err) {
+      console.error("Error fetching sent requests:", err);
+    }
+  };
+
+  // FETCH FRIEND LIST (latest 5 by default, or search results)
+  const fetchFriends = async (search = '') => {
+    try {
+      setIsSearching(search !== '');
+      const res = await api.get("/friends/list", {
+        params: search ? { search } : {}
+      });
       setAcceptedFriends(res.data.friends || []);
-      
+      setTotalFriends(res.data.total || 0);
     } catch (err) {
       console.error("Error fetching friends:", err);
     }
@@ -45,6 +60,7 @@ const FriendsSection = ({ onOpenChat }) => {
 
   useEffect(() => {
     fetchPending();
+    fetchSentRequests();
     fetchFriends();
     fetchRejected();
   }, []);
@@ -103,10 +119,27 @@ const FriendsSection = ({ onOpenChat }) => {
       .slice(0, 2);
   };
 
-  const filteredFriends = acceptedFriends.filter((friend) =>
-    friend.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    friend.email.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Handle search button click - search from backend
+  const handleSearch = () => {
+    if (searchQuery.trim()) {
+      fetchFriends(searchQuery);
+    } else {
+      fetchFriends(); // Reset to latest 5
+    }
+  };
+
+  // Handle search input enter key
+  const handleSearchKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      handleSearch();
+    }
+  };
+
+  // Clear search and reset to latest 5
+  const handleClearSearch = () => {
+    setSearchQuery('');
+    fetchFriends();
+  };
 
 
   const handleAccept = async (requesterId) => {
@@ -136,6 +169,15 @@ const FriendsSection = ({ onOpenChat }) => {
       fetchFriends();
     } catch (err) {
       console.error("Error removing friend:", err);
+    }
+  };
+
+  const handleCancelRequest = async (recipientId) => {
+    try {
+      await api.post("/friends/cancel", { recipientId });
+      fetchSentRequests();
+    } catch (err) {
+      console.error("Error cancelling request:", err);
     }
   };
 
@@ -179,6 +221,19 @@ const FriendsSection = ({ onOpenChat }) => {
             </span>
           </button>
 
+          <button
+            className={`pb-3 pt-2 border-b-[3px] ${
+              activeTab === "sent"
+                ? "border-primary text-primary font-bold"
+                : "border-transparent text-text-secondary-dark hover:text-primary"
+            }`}
+            onClick={() => setActiveTab("sent")}
+          >
+            Sent Requests
+            <span className="bg-orange-500 text-white text-xs font-bold rounded-full h-5 w-5 inline-flex items-center justify-center ml-2">
+              {sentRequests.length}
+            </span>
+          </button>
 
           <button
             className={`pb-3 pt-2 border-b-[3px] ${
@@ -253,6 +308,49 @@ const FriendsSection = ({ onOpenChat }) => {
           </div>
         )}
 
+        {activeTab === "sent" && (
+          <div className="flex flex-col divide-y divide-gray-200">
+            {sentRequests.length === 0 && (
+              <p className="py-10 text-center text-gray-500">No sent requests</p>
+            )}
+
+            {sentRequests.map((req) => (
+              <div key={req._id} className="flex items-center justify-between gap-4 py-4">
+                <div className="flex items-center gap-4">
+                  <div className="h-14 w-14 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white font-bold text-lg overflow-hidden">
+                    {req.recipient.avatar ? (
+                      <img
+                        src={req.recipient.avatar}
+                        alt={req.recipient.name}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <span>{getInitials(req.recipient.name)}</span>
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-text-primary-dark font-semibold">
+                      {req.recipient.name}
+                    </p>
+                    <p className="text-text-secondary-dark text-sm">
+                      {req.recipient.email}
+                    </p>
+                    <p className="text-xs text-orange-600 font-medium mt-1">Waiting for response...</p>
+                  </div>
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => handleCancelRequest(req.recipient._id)}
+                    className="rounded-full bg-red-100 px-6 py-2.5 text-sm font-bold text-red-600 hover:bg-red-200"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
         {activeTab === "accepted" && (
           <div className="flex flex-col divide-y divide-gray-200">
@@ -366,28 +464,57 @@ const FriendsSection = ({ onOpenChat }) => {
 
       <div className="flex flex-col gap-6 rounded-2xl bg-gray-50 p-6 h-fit lg:sticky lg:top-8 shadow-md">
 
-        <h2 className="text-2xl font-bold text-text-primary-dark">
-          Friends List ({acceptedFriends.length})
-        </h2>
-
-        <div className="relative">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary-dark" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full rounded-full bg-white py-3 pl-12 pr-4 text-text-primary-dark 
-                       placeholder:text-text-secondary-dark border border-transparent 
-                       focus:ring-primary focus:border-primary outline-none transition"
-            placeholder="Search friends..."
-          />
+        <div className="flex items-center justify-between">
+          <h2 className="text-2xl font-bold text-text-primary-dark">
+            Friends List
+          </h2>
+          <span className="text-sm text-gray-600 font-medium">
+            {isSearching ? `${acceptedFriends.length} found` : `${acceptedFriends.length} / ${totalFriends}`}
+          </span>
         </div>
 
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary-dark" size={18} />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyPress={handleSearchKeyPress}
+              className="w-full rounded-full bg-white py-2.5 pl-11 pr-10 text-text-primary-dark text-sm
+                         placeholder:text-text-secondary-dark border border-gray-200
+                         focus:ring-primary focus:border-primary outline-none transition"
+              placeholder="Search friends..."
+            />
+            {searchQuery && (
+              <button
+                onClick={handleClearSearch}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition"
+              >
+                <X size={16} />
+              </button>
+            )}
+          </div>
+          
+          <button
+            onClick={handleSearch}
+            className="px-4 py-2.5 bg-primary text-white rounded-full text-sm font-semibold hover:bg-accent-tertiary transition"
+          >
+            Search
+          </button>
+        </div>
+
+        {!isSearching && totalFriends > 5 && (
+          <p className="text-xs text-gray-500 text-center">
+            Showing latest 5 friends. Search to find others.
+          </p>
+        )}
+
         <div className="flex flex-col gap-2">
-          {filteredFriends.length === 0 && searchQuery && (
+          {acceptedFriends.length === 0 && searchQuery && (
             <p className="text-center text-gray-500 py-4">No friends found</p>
           )}
-          {filteredFriends.map((friend) => (
+          {acceptedFriends.map((friend) => (
             <div key={friend._id} className="flex items-center justify-between hover:bg-white p-3 rounded-xl">
 
               <div className="flex items-center gap-4">

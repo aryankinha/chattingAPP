@@ -3,7 +3,6 @@ import dotenv from "dotenv";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import authRoutes from "./routes/auth.routes.js";
-import dashboardRoutes from "./routes/dashboard.routes.js";
 import usersRoutes from "./routes/users.routes.js";
 import connectDB from "./config/db.js";
 import http from "http";
@@ -35,16 +34,12 @@ app.use(
 app.use(cookieParser());
 app.use(express.json());
 
-// Initialize app first, then setup socket and start server
 async function startServer() {
   try {
-    // Connect to database first
+
     await connectDB(MONGO_URI);
 
-    // Initialize Socket.io AFTER db connection
     const { io, onlineUsers } = await socketHandler(server);
-
-    // Attach to app so routes can access them
     app.set("io", io);
     app.set("onlineUsers", onlineUsers);
 
@@ -67,11 +62,10 @@ app.get("/", (req, res) => {
 
 // Routes - registered BEFORE server starts
 app.use("/api/auth", authRoutes);
-app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/users", usersRoutes);
 app.use("/api/friends", friendRoutes);
 app.use("/api/messages", messagesRoutes);
 app.use("/api/rooms", roomsRoutes);
 app.use("/api/profile", profileRoutes);
-// Start the server
+
 startServer();

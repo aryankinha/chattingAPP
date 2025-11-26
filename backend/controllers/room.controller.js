@@ -11,9 +11,16 @@ export const getMyRooms = async (req, res) => {
       .populate("participants", "name email avatar status lastSeen")
       .sort({ "lastMessage.createdAt": -1 });
 
+    // Add unread count for current user to each room
+    const roomsWithUnread = rooms.map(room => {
+      const roomObj = room.toObject();
+      roomObj.unreadCount = room.unreadCount?.get(userId) || 0;
+      return roomObj;
+    });
+
     return res.status(200).json({
       success: true,
-      rooms
+      rooms: roomsWithUnread
     });
 
   } catch (err) {
@@ -46,6 +53,28 @@ export const getOrCreateRoom = async (req, res) => {
 
   } catch (err) {
     console.error("Get/Create Room Error:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// Mark messages in a room as read
+export const markRoomAsRead = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { roomId } = req.params;
+
+    // Reset unread count for this user in this room
+    await Room.findByIdAndUpdate(roomId, {
+      [`unreadCount.${userId}`]: 0
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Room marked as read"
+    });
+
+  } catch (err) {
+    console.error("Mark Room as Read Error:", err);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };

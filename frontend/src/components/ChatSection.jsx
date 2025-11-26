@@ -18,6 +18,7 @@ const ChatSection = ({ selectedRoom, onRoomLoaded }) => {
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortAlphabetically, setSortAlphabetically] = useState(false);
+  const [showUnreadOnly, setShowUnreadOnly] = useState(false);
   const [onlineUserIds, setOnlineUserIds] = useState([]);
   const [user, setUser] = useState(null);
   const [userError, setUserError] = useState(false);
@@ -33,8 +34,6 @@ const ChatSection = ({ selectedRoom, onRoomLoaded }) => {
         if (userStr) {
           let userData = JSON.parse(userStr);
           
-          // IMPORTANT: Backend returns 'id' but we need '_id' for consistency
-          // Normalize the user object to always have _id
           if (userData && userData.id && !userData._id) {
             userData._id = userData.id;
           }
@@ -104,13 +103,11 @@ const ChatSection = ({ selectedRoom, onRoomLoaded }) => {
     
     // Handle online users updates
     const handleOnlineUsers = (userIds) => {
-      // console.log('Received online users in ChatSection:', userIds);
       setOnlineUserIds(userIds);
     };
     
     // Log socket connection status
     socket.on("connect", () => {
-      // console.log("Socket connected:", socket.id);
       socket.emit('online-users');
     });
     
@@ -146,12 +143,10 @@ const ChatSection = ({ selectedRoom, onRoomLoaded }) => {
       const existingRoom = rooms.find(r => r._id === selectedRoom._id);
       
       if (existingRoom) {
-        // Load the existing room (only if it's not already active)
         if (activeRoom?._id !== existingRoom._id) {
           loadMessages(existingRoom);
         }
       } else {
-        // Check if we've already added this room to prevent duplicates
         setRooms(prev => {
           const alreadyExists = prev.some(r => r._id === selectedRoom._id);
           if (alreadyExists) {
@@ -166,12 +161,11 @@ const ChatSection = ({ selectedRoom, onRoomLoaded }) => {
         }
       }
       
-      // Clear the selectedRoom after processing to prevent re-triggering
       if (onRoomLoaded) {
         onRoomLoaded();
       }
     }
-  }, [selectedRoom?._id]); // Only depend on the room ID, not the whole object
+  }, [selectedRoom?._id]); 
 
   const loadMessages = async (room) => {
     if (!room || !room._id) {
@@ -194,6 +188,18 @@ const ChatSection = ({ selectedRoom, onRoomLoaded }) => {
       
       setMessages(messagesData);
       setLoadingMessages(false);
+      
+      // Mark messages as read
+      try {
+        await api.post(`/rooms/${room._id}/mark-read`);
+        setRooms(prevRooms => 
+          prevRooms.map(r => 
+            r._id === room._id ? { ...r, unreadCount: 0 } : r
+          )
+        );
+      } catch (err) {
+        console.error("Error marking room as read:", err);
+      }
       
       // Check friendship status with the other participant
       const otherParticipant = room.participants.find(p => p._id !== user?._id);
@@ -218,7 +224,9 @@ const ChatSection = ({ selectedRoom, onRoomLoaded }) => {
   useEffect(() => {
     
     const handleNewMessage = (msg) => {
-      if (msg.roomId === activeRoom?._id) {
+      const isActiveRoom = msg.roomId === activeRoom?._id;
+      
+      if (isActiveRoom) {
         setMessages((prev) => {
 
           return [...prev, msg];
@@ -235,6 +243,10 @@ const ChatSection = ({ selectedRoom, onRoomLoaded }) => {
         const roomWithNewMessage = {
           ...updatedRoom,
           lastMessage: { text: msg.text, createdAt: msg.createdAt },
+
+          unreadCount: (!isActiveRoom && msg.sender !== user?._id) 
+            ? (updatedRoom.unreadCount || 0) + 1 
+            : updatedRoom.unreadCount || 0
         };
 
         const otherRooms = prev.filter((room) => room._id !== msg.roomId);
@@ -243,10 +255,22 @@ const ChatSection = ({ selectedRoom, onRoomLoaded }) => {
     };
 
     const handleReceiveMessage = (msg) => {
+      const isActiveRoom = msg.roomId === activeRoom?._id;
       
-      if (msg.roomId === activeRoom?._id) {
+      if (isActiveRoom) {
         setMessages((prev) => [...prev, msg]);
         setTimeout(() => scrollToBottom(), 100);
+      }
+      
+      // Update unread count if not in active room
+      if (!isActiveRoom && msg.sender !== user?._id) {
+        setRooms((prev) => 
+          prev.map(room => 
+            room._id === msg.roomId 
+              ? { ...room, unreadCount: (room.unreadCount || 0) + 1 }
+              : room
+          )
+        );
       }
     };
 
@@ -305,7 +329,6 @@ const ChatSection = ({ selectedRoom, onRoomLoaded }) => {
         toast.error("Failed to send message. Please try again.");
       }
       
-      // Restore message text if sending failed
       setMessageText(textToSend);
     }
   };
@@ -315,7 +338,7 @@ const ChatSection = ({ selectedRoom, onRoomLoaded }) => {
     try {
       await api.put(`/messages/unsend/${messageId}`);
       
-      // Emit socket event to notify other users
+    
       socket.emit("message:unsend", { 
         messageId, 
         roomId: activeRoom._id 
@@ -337,6 +360,11 @@ const ChatSection = ({ selectedRoom, onRoomLoaded }) => {
   // Filter and sort rooms
   const getFilteredAndSortedRooms = () => {
     let filteredRooms = [...rooms];
+
+    // Filter by unread only
+    if (showUnreadOnly) {
+      filteredRooms = filteredRooms.filter((room) => room.unreadCount > 0);
+    }
 
     // Filter by search query
     if (searchQuery.trim()) {
@@ -444,7 +472,7 @@ const ChatSection = ({ selectedRoom, onRoomLoaded }) => {
         <div className="p-6">
           <h1 className="text-4xl font-black">Chats</h1>
 
-          {/* Search Bar with Sort Button */}
+          {/* Search Bar with Filter Buttons */}
           <div className="flex gap-2 mt-4">
             <div className="relative flex-1">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 w-5 h-5" />
@@ -456,6 +484,26 @@ const ChatSection = ({ selectedRoom, onRoomLoaded }) => {
                 className="w-full rounded-full border border-gray-200 bg-gray-50 py-3 pl-12 pr-4 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
               />
             </div>
+            
+            {/* Unread Filter Button */}
+            <button
+              onClick={() => setShowUnreadOnly(!showUnreadOnly)}
+              className={`rounded-full p-3 flex items-center justify-center transition-colors relative ${
+                showUnreadOnly
+                  ? "bg-primary text-white"
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+              }`}
+              title={showUnreadOnly ? "Showing unread only (click to show all)" : "Show unread only"}
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+              {!showUnreadOnly && rooms.filter(r => r.unreadCount > 0).length > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                  {rooms.filter(r => r.unreadCount > 0).length}
+                </span>
+              )}
+            </button>
             
             {/* Sort Button */}
             <button
@@ -526,8 +574,15 @@ const ChatSection = ({ selectedRoom, onRoomLoaded }) => {
                   />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex justify-between">
-                    <p className="font-semibold truncate">{friend.name}</p>
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-2">
+                      <p className="font-semibold truncate">{friend.name}</p>
+                      {room.unreadCount > 0 && (
+                        <span className="bg-primary text-white text-xs font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center">
+                          {room.unreadCount > 99 ? '99+' : room.unreadCount}
+                        </span>
+                      )}
+                    </div>
                     <span className="text-xs text-gray-400">
                       {room.lastMessage ? new Date(room.lastMessage.createdAt).toLocaleTimeString() : ""}
                     </span>
@@ -697,10 +752,10 @@ const ChatSection = ({ selectedRoom, onRoomLoaded }) => {
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
                             </svg>
-                            <span className="text-sm">{msg.text}</span>
+                            <span className="text-sm whitespace-pre-wrap break-words">{msg.text}</span>
                           </div>
                         ) : (
-                          msg.text
+                          <span className="whitespace-pre-wrap break-words">{msg.text}</span>
                         )}
                       </div>
                       {isOwnMessage && !msg.isUnsent && (
@@ -776,8 +831,7 @@ const ChatSection = ({ selectedRoom, onRoomLoaded }) => {
               </div>
             ) : (
               <div className="flex items-center gap-3 bg-gray-50 rounded-2xl px-5 py-3 border border-gray-200 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 transition-all">
-                <input
-                  type="text"
+                <textarea
                   placeholder="Type your message..."
                   value={messageText}
                   onChange={(e) => setMessageText(e.target.value)}
@@ -787,7 +841,17 @@ const ChatSection = ({ selectedRoom, onRoomLoaded }) => {
                       sendMessage();
                     }
                   }}
-                  className="flex-1 bg-transparent outline-none text-gray-800 placeholder:text-gray-400"
+                  rows={1}
+                  className="flex-1 bg-transparent outline-none text-gray-800 placeholder:text-gray-400 resize-none max-h-32 overflow-y-auto whitespace-pre-wrap leading-6"
+                  style={{
+                    minHeight: '24px',
+                    height: '24px'
+                  }}
+                  onInput={(e) => {
+                    // Auto-resize textarea based on content
+                    e.target.style.height = '24px';
+                    e.target.style.height = Math.min(e.target.scrollHeight, 128) + 'px';
+                  }}
                 />
 
                 <button

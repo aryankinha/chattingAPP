@@ -51,13 +51,10 @@ export const login = async (req, res) => {
       sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
       secure: process.env.NODE_ENV === "production",
       maxAge: 7 * 24 * 60 * 60 * 1000,
-      path: "/", // Explicitly set path
+      path: "/",
     };
 
     res.cookie("refreshToken", refreshToken, cookieOptions);
-
-    // console.log("✅ Login successful - Refresh token cookie set");
-    // console.log("Cookie options:", cookieOptions);
 
     res.status(200).json({
       accessToken,
@@ -72,28 +69,22 @@ export const login = async (req, res) => {
 // Token Refreshing
 export const refreshAccessToken = async (req, res) => {
   try {
-    // console.log("🔄 Refresh token request received");
-    // console.log("Cookies:", req.cookies);
     
     const refreshToken = req.cookies.refreshToken;
     if (!refreshToken) {
-      // console.log("❌ No refresh token in cookies");
       return res.status(401).json({ message: "No refresh token provided" });
     }
 
-    // console.log("✅ Refresh token found in cookies");
 
     const decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
-    // console.log("✅ Refresh token verified, user ID:", decoded.id);
+
 
     // Then check if it exists in DB
     const user = await User.findOne({ refreshToken });
     if (!user || user._id.toString() !== decoded.id) {
-      // console.log("❌ Refresh token not found in DB or user mismatch");
+
       return res.status(403).json({ message: "Invalid refresh token" });
     }
-
-    // console.log("✅ User found in DB with matching refresh token");
 
     const { accessToken, refreshToken: newRefreshToken } = generateTokens(
       user._id
@@ -111,7 +102,6 @@ export const refreshAccessToken = async (req, res) => {
       path: "/", // Explicitly set path
     });
 
-    // console.log("✅ New tokens generated and sent");
     res.json({ accessToken });
   } catch (error) {
     console.error("❌ Refresh token error:", error.message);

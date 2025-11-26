@@ -44,40 +44,55 @@ const ProfileSettings = () => {
   const handleSaveChanges = async () => {
     setUploading(true);
     try {
+      let updatedUser = { ...user };
+      let hasChanges = false;
+
+      // Check if name changed
+      const nameChanged = name.trim() !== user.name;
+
       // Upload avatar if a new file was selected
       if (selectedFile) {
         const formData = new FormData();
         formData.append('avatar', selectedFile);
 
-        const response = await api.post('/profile/avatar', formData, {
+        const response = await api.put('/profile/avatar', formData, {
           headers: {
             'Content-Type': 'multipart/form-data',
           },
         });
 
-        // console.log('Upload response:', response.data);
-        // console.log('Avatar URL from server:', response.data.avatarUrl);
+        updatedUser.avatar = response.data.avatarUrl;
+        hasChanges = true;
+      }
 
-        // Update localStorage with new avatar URL
-        const updatedUser = { ...user, avatar: response.data.avatarUrl, name };
-        // console.log('Updated user object:', updatedUser);
+      // Update name if it changed
+      if (nameChanged) {
+        const response = await api.put('/profile/update', { 
+          name: name.trim() 
+        });
+
+        updatedUser = { ...updatedUser, ...response.data.user };
+        hasChanges = true;
+      }
+
+      if (hasChanges) {
+        // Update localStorage
         localStorage.setItem('user', JSON.stringify(updatedUser));
         setUser(updatedUser);
         setSelectedFile(null);
         setPreviewUrl(null);
 
         // Dispatch custom event to notify other components
-        // console.log('Dispatching userUpdated event');
         window.dispatchEvent(new Event('userUpdated'));
 
         toast.success('Profile updated successfully!');
       } else {
-        // Just update name if no avatar change
-        toast.success('Name updated successfully!');
+        toast.info('No changes to save');
       }
     } catch (error) {
       console.error('Error updating profile:', error);
-      toast.error('Failed to update profile. Please try again.');
+      const errorMessage = error.response?.data?.message || 'Failed to update profile. Please try again.';
+      toast.error(errorMessage);
       setPreviewUrl(null);
     } finally {
       setUploading(false);
@@ -115,7 +130,7 @@ const ProfileSettings = () => {
 
     setChangingPassword(true);
     try {
-      await api.post('/profile/change-password', {
+      await api.put('/profile/change-password', {
         currentPassword,
         newPassword
       });

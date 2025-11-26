@@ -31,6 +31,55 @@ export const updateAvatar = async (req, res) => {
   }
 };
 
+export const updateProfile = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { name } = req.body;
+
+    // Validate input
+    if (!name || !name.trim()) {
+      return res.status(400).json({ message: "Name is required" });
+    }
+
+    const trimmedName = name.trim();
+
+    // Check if name already exists (exclude current user)
+    const existingUser = await User.findOne({ 
+      name: trimmedName,
+      _id: { $ne: userId } 
+    });
+
+    if (existingUser) {
+      return res.status(400).json({ message: "Username already exists" });
+    }
+
+    // Update user name
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { name: trimmedName },
+      { new: true }
+    ).select('-password -refreshToken');
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.json({
+      message: "Profile updated successfully",
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        avatar: user.avatar
+      }
+    });
+
+  } catch (error) {
+    console.error("Profile update error:", error);
+    res.status(500).json({ message: "Failed to update profile" });
+  }
+};
+
 export const changePassword = async (req, res) => {
   try {
     const userId = req.user.id;

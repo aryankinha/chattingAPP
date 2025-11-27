@@ -15,6 +15,12 @@
 
 ---
 
+## Frontend URL:-
+https://chatting-app-olive-eight.vercel.app
+
+## Backend URL:-
+https://chattingapp-o6k7.onrender.com
+
 ## 🌟 Overview
 
 **ChattingApp** is a modern, real-time chat application built with the MERN stack (MongoDB, Express, React, Node.js) and Socket.IO. It provides seamless communication with features like instant messaging, friend management, profile customization, and real-time online status tracking.
